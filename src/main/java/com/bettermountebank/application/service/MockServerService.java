@@ -3,9 +3,10 @@ package com.bettermountebank.application.service;
 import com.bettermountebank.model.EndpointConfig;
 import com.bettermountebank.model.MockConfig;
 import com.bettermountebank.model.Output;
-import com.bettermountebank.model.UnleashFeature;
 import com.bettermountebank.domain.service.MockConfigService;
 import com.bettermountebank.imposter.ImposterRegistry;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -225,6 +226,40 @@ public class MockServerService {
         }
 
         String json = IOUtils.toString(resource.getInputStream(), StandardCharsets.UTF_8);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode responseNode = mapper.readTree(json);
+
+            int status = responseNode.has("status") ? responseNode.get("status").asInt() : 200;
+            JsonNode body = responseNode.has("body") ? responseNode.get("body") : mapper.createObjectNode();
+
+            ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
+
+            if (responseNode.has("headers")) {
+                JsonNode headersNode = responseNode.get("headers");
+                if (headersNode.isObject()) {
+                    Iterator<Map.Entry<String, JsonNode>> fields = headersNode.fields();
+                    while (fields.hasNext()) {
+                        Map.Entry<String, JsonNode> header = fields.next();
+                        responseBuilder.header(header.getKey(), header.getValue().asText());
+                    }
+                }
+            }
+
+            if (!responseNode.has("headers") ||
+                !responseNode.get("headers").has("Content-Type")) {
+                responseBuilder.contentType(MediaType.APPLICATION_JSON);
+            }
+
+            return responseBuilder.body(body);
+
+        } catch (Exception e) {
+            log.error("Error parsing static response file: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to parse static response file",
+                "message", e.getMessage()
+            ));
+        }
     }
 }
