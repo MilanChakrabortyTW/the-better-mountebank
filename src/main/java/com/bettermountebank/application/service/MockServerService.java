@@ -37,57 +37,84 @@ public class MockServerService {
         String path = request.getRequestURI();
         String method = request.getMethod();
 
-        String mockPrefixHeader = headers.getOrDefault("x-vo-mock", "");
+        String mockPrefixHeader = headers.getOrDefault("x-vo-ref", "");
         String mockPrefix = extractMockPrefix(mockPrefixHeader);
+
+        log.info("Processing request path={}, method={}, mockPrefix={}", path, method, mockPrefix);
 
         MockConfig config = mockPrefix != null ?
                 mockConfigService.findByMockPrefix(mockPrefix).orElse(null) : null;
 
         ImposterRegistry.Imposter imposter = imposterRegistry.findImposter(path, method);
         if (imposter == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "Imposter not found for this path and method"));
+            log.warn("Imposter not found for path={}, method={}, mockPrefix={}", path, method, mockPrefix);
+            return ResponseEntity.status(404).body(Map.of(
+                "error", "Imposter not found for this path and method",
+                "lan", headers.getOrDefault("lan", "en")
+            ));
         }
 
         String specialName = imposter.getSpecialName();
         EndpointConfig endpointConfig = getEndpointConfig(config, specialName);
 
         if (endpointConfig == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "No endpoint configuration found for this path"));
+            log.warn("No endpoint config found for specialName={}, mockPrefix={}", specialName, mockPrefix);
+            return ResponseEntity.status(404).body(Map.of(
+                "error", "No endpoint configuration found for this path",
+                "lan", headers.getOrDefault("lan", "en")
+            ));
         }
 
         int callIndex = endpointConfig.getCallCount();
         Output output = getOutputForCall(endpointConfig);
 
         if (output == null) {
-            return ResponseEntity.status(404).body(Map.of("error", "No output configured for this endpoint"));
+            log.warn("No output configured for specialName={}, mockPrefix={}", specialName, mockPrefix);
+            return ResponseEntity.status(404).body(Map.of(
+                "error", "No output configured for this endpoint",
+                "lan", headers.getOrDefault("lan", "en")
+            ));
         }
 
-        if (config != null) {
-            mockConfigService.updateCallCount(config, specialName, callIndex + 1);
-        }
+        mockConfigService.updateCallCount(config, specialName, callIndex + 1);
+        log.debug("Updated call count for specialName={}, mockPrefix={}, newCount={}", specialName, mockPrefix, callIndex + 1);
 
         if (!imposter.getResponses().contains(output.getResponseType())) {
+            log.warn("Invalid responseType={} for imposter={}, mockPrefix={}", output.getResponseType(), specialName, mockPrefix);
             return ResponseEntity.status(404).body(Map.of(
                     "error", "ResponseType '" + output.getResponseType() + "' not allowed for this imposter"));
         }
 
-        if ("custom".equals(output.getResponseType()) && output.getCustomResponse() != null) {
-            return ResponseEntity.ok(output.getCustomResponse());
+        if ("custom".equals(output.getResponseType())) {
+            if (output.getCustomResponse() != null) {
+                log.info("Serving custom response for specialName={}, mockPrefix={}", specialName, mockPrefix);
+                return ResponseEntity.ok(output.getCustomResponse());
+            } else {
+                log.warn("Custom response is null for specialName={}, mockPrefix={}", specialName, mockPrefix);
+                return ResponseEntity.status(500).body(Map.of(
+                    "error", "Configuration error",
+                    "message", "Custom response type specified but customResponse is not properly configured"
+                ));
+            }
         }
 
         if ("proxy".equals(output.getResponseType())) {
+            log.info("Proxying request for specialName={}, mockPrefix={}, target={}",
+                    specialName, mockPrefix, imposter.getProxyTarget());
             return proxyRequest(request, headers, body, imposter.getProxyTarget());
         }
 
+        log.info("Serving static response for specialName={}, responseType={}, mockPrefix={}",
+                specialName, output.getResponseType(), mockPrefix);
         return serveStaticResponse(imposter, output);
     }
 
     public ResponseEntity<?> handleUnleashFeatures(Map<String, String> headers) {
-        String mockPrefixHeader = headers.getOrDefault("x-vo-mock", "");
+        String mockPrefixHeader = headers.getOrDefault("x-vo-ref", "");
         String mockPrefix = extractMockPrefix(mockPrefixHeader);
 
         if (mockPrefix.isEmpty()) {
-            log.info("No X-VO-MOCK header found, proxying to Unleash");
+            log.info("No X-VO-REF header found, proxying to Unleash");
             return proxyToUnleash();
         }
 
