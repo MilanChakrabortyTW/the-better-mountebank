@@ -1,2 +1,0 @@
-{"status": 400, "headers": {"X-Sample": "bad-request"}, "body": {"message": "Bad Request"}}
-
