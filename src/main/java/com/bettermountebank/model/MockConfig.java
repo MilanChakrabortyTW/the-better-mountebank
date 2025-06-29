@@ -16,5 +16,5 @@ public class MockConfig {
     private String id;
     private String mockPrefix;
     private Map<String, EndpointConfig> configs;
-    private List<Object> toggles;
+    private List<UnleashFeature> toggles;
 }

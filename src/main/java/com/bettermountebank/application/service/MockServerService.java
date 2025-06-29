@@ -3,6 +3,7 @@ package com.bettermountebank.application.service;
 import com.bettermountebank.model.EndpointConfig;
 import com.bettermountebank.model.MockConfig;
 import com.bettermountebank.model.Output;
+import com.bettermountebank.model.UnleashFeature;
 import com.bettermountebank.domain.service.MockConfigService;
 import com.bettermountebank.imposter.ImposterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -36,11 +37,7 @@ public class MockServerService {
         String path = request.getRequestURI();
         String method = request.getMethod();
 
-        if (path.startsWith("/unleash/api/client/features")) {
-            return handleUnleashFeatures(headers);
-        }
-
-        String mockPrefixHeader = headers.getOrDefault("X-VO-MOCK", "");
+        String mockPrefixHeader = headers.getOrDefault("x-vo-mock", "");
         String mockPrefix = extractMockPrefix(mockPrefixHeader);
 
         MockConfig config = mockPrefix != null ?
@@ -86,7 +83,8 @@ public class MockServerService {
     }
 
     public ResponseEntity<?> handleUnleashFeatures(Map<String, String> headers) {
-        String mockPrefix = headers.getOrDefault("X-VO-MOCK", "");
+        String mockPrefixHeader = headers.getOrDefault("x-vo-mock", "");
+        String mockPrefix = extractMockPrefix(mockPrefixHeader);
 
         if (mockPrefix.isEmpty()) {
             log.info("No X-VO-MOCK header found, proxying to Unleash");

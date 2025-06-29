@@ -19,7 +19,7 @@ public class MockController {
     private final MockServerService mockServerService;
 
     @GetMapping("/unleash/api/client/features")
-    public ResponseEntity<?> handleUnleashFeatures(HttpServletRequest request, @RequestHeader Map<String, String> headers) {
+    public ResponseEntity<?> handleUnleashFeatures(@RequestHeader Map<String, String> headers) {
         log.debug("Handling Unleash features request");
         return mockServerService.handleUnleashFeatures(headers);
     }
@@ -29,13 +29,7 @@ public class MockController {
             HttpServletRequest request,
             @RequestHeader Map<String, String> headers,
             @RequestBody(required = false) String body) throws IOException {
-
         log.debug("Handling request: {} {}", request.getMethod(), request.getRequestURI());
-
-        if (request.getRequestURI().startsWith("/unleash/api/client/features")) {
-            return handleUnleashFeatures(request, headers);
-        }
-
         return mockServerService.processRequest(request, headers, body);
     }
 }

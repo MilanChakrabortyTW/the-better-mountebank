@@ -3,6 +3,7 @@ package com.bettermountebank.controller;
 import com.bettermountebank.application.service.ConfigApplicationService;
 import com.bettermountebank.domain.model.ConfigCreationResult;
 import com.bettermountebank.model.EndpointConfig;
+import com.bettermountebank.model.UnleashFeature;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
@@ -47,6 +48,6 @@ public class ConfigController {
     @Data
     public static class ConfigRequest {
         private Map<String, EndpointConfig> configs;
-        private List<Object> toggles;
+        private List<UnleashFeature> toggles;
     }
 }
