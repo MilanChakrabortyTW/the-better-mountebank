@@ -1,32 +1,38 @@
 package com.bettermountebank.imposter;
 
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.*;
 import lombok.Getter;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
 @Component
+@Getter
 public class ImposterRegistry {
-    @Getter
-    private final List<Imposter> imposters = Arrays.asList(
+    private final List<Imposter> imposters = new ArrayList<>(List.of(
         new Imposter(
             Pattern.compile("^/api/v1/bpm$"),
             HttpMethod.POST,
             "bpm",
-            Arrays.asList("success", "proxy", "custom", "bad_request", "server_error"),
+            List.of("success", "bad_request", "server_error", "proxy", "custom"),
             "bpm",
             "https://some-proxy"
         )
-    );
+    ));
 
     public Imposter findImposter(String path, String method) {
+        System.out.println("Finding imposter for path: " + path + ", method: " + method);
         return imposters.stream()
-                .filter(i -> i.getRegex().matcher(path).matches() && (i.getMethod() == null || i.getMethod().matches(method)))
+                .filter(i -> {
+                    boolean pathMatches = i.getRegex().matcher(path).matches();
+                    boolean methodMatches = i.getMethod() == null || i.getMethod().name().equalsIgnoreCase(method);
+                    System.out.println("Checking imposter: " + i + ", pathMatches: " + pathMatches + ", methodMatches: " + methodMatches);
+                    return pathMatches && methodMatches;
+                })
                 .findFirst()
                 .orElse(null);
     }

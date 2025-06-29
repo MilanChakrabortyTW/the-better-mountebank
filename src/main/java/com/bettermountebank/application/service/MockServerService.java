@@ -36,6 +36,14 @@ public class MockServerService {
 
     public ResponseEntity<?> processRequest(HttpServletRequest request, Map<String, String> headers, String body) throws IOException {
         String path = request.getRequestURI();
+
+        if (path.startsWith("/mock")) {
+            path = path.substring(5);
+            if (path.isEmpty()) {
+                path = "/";
+            }
+        }
+
         String method = request.getMethod();
 
         String mockPrefixHeader = headers.getOrDefault("x-vo-ref", "");
@@ -89,7 +97,26 @@ public class MockServerService {
         if ("custom".equals(output.getResponseType())) {
             if (output.getCustomResponse() != null) {
                 log.info("Serving custom response for specialName={}, mockPrefix={}", specialName, mockPrefix);
-                return ResponseEntity.ok(output.getCustomResponse());
+
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode responseNode;
+
+                    if (output.getCustomResponse() instanceof String) {
+                        responseNode = mapper.readTree((String) output.getCustomResponse());
+                    } else {
+                        responseNode = mapper.valueToTree(output.getCustomResponse());
+                    }
+
+                    return buildResponseFromJsonNode(responseNode);
+
+                } catch (Exception e) {
+                    log.error("Error parsing custom response: {}", e.getMessage());
+                    return ResponseEntity.status(500).body(Map.of(
+                        "error", "Failed to parse custom response",
+                        "message", e.getMessage()
+                    ));
+                }
             } else {
                 log.warn("Custom response is null for specialName={}, mockPrefix={}", specialName, mockPrefix);
                 return ResponseEntity.status(500).body(Map.of(
@@ -231,28 +258,7 @@ public class MockServerService {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode responseNode = mapper.readTree(json);
 
-            int status = responseNode.has("status") ? responseNode.get("status").asInt() : 200;
-            JsonNode body = responseNode.has("body") ? responseNode.get("body") : mapper.createObjectNode();
-
-            ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
-
-            if (responseNode.has("headers")) {
-                JsonNode headersNode = responseNode.get("headers");
-                if (headersNode.isObject()) {
-                    Iterator<Map.Entry<String, JsonNode>> fields = headersNode.fields();
-                    while (fields.hasNext()) {
-                        Map.Entry<String, JsonNode> header = fields.next();
-                        responseBuilder.header(header.getKey(), header.getValue().asText());
-                    }
-                }
-            }
-
-            if (!responseNode.has("headers") ||
-                !responseNode.get("headers").has("Content-Type")) {
-                responseBuilder.contentType(MediaType.APPLICATION_JSON);
-            }
-
-            return responseBuilder.body(body);
+            return buildResponseFromJsonNode(responseNode);
 
         } catch (Exception e) {
             log.error("Error parsing static response file: {}", e.getMessage());
@@ -261,5 +267,30 @@ public class MockServerService {
                 "message", e.getMessage()
             ));
         }
+    }
+
+    private ResponseEntity<?> buildResponseFromJsonNode(JsonNode responseNode) {
+        int status = responseNode.has("status") ? responseNode.get("status").asInt() : 200;
+        JsonNode body = responseNode.has("body") ? responseNode.get("body") : responseNode;
+
+        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.status(status);
+
+        if (responseNode.has("headers")) {
+            JsonNode headersNode = responseNode.get("headers");
+            if (headersNode.isObject()) {
+                Iterator<Map.Entry<String, JsonNode>> fields = headersNode.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> header = fields.next();
+                    responseBuilder.header(header.getKey(), header.getValue().asText());
+                }
+            }
+        }
+
+        if (!responseNode.has("headers") ||
+            !responseNode.get("headers").has("Content-Type")) {
+            responseBuilder.contentType(MediaType.APPLICATION_JSON);
+        }
+
+        return responseBuilder.body(body);
     }
 }

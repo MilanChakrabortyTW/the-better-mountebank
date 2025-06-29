@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @RestController
+@RequestMapping("/mock")
 @RequiredArgsConstructor
 @Hidden
 @Slf4j
@@ -29,6 +30,7 @@ public class MockController {
             HttpServletRequest request,
             @RequestHeader Map<String, String> headers,
             @RequestBody(required = false) String body) throws IOException {
+
         log.debug("Handling request: {} {}", request.getMethod(), request.getRequestURI());
         return mockServerService.processRequest(request, headers, body);
     }

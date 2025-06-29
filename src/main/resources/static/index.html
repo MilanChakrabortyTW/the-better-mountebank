@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Better Mountebank</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>THE BETTER MOUNTEBANK</h1>
+        </header>
+
+        <main>
+            <section id="endpointConfig" class="section">
+                <h2>Endpoint Configurations</h2>
+                <div id="imposters-container">
+                    <!-- Imposters will be dynamically loaded here -->
+                    <div class="loading">Loading imposters...</div>
+                </div>
+            </section>
+
+            <section id="togglesConfig" class="section">
+                <h2>Feature Toggles</h2>
+                <div id="toggles-container">
+                    <!-- Toggles will be dynamically loaded here -->
+                    <div class="loading">Loading toggles...</div>
+                </div>
+            </section>
+
+            <section class="action-section">
+                <button id="saveButton" class="save-btn">Save Configuration</button>
+                <div id="resultContainer" class="result-container hidden">
+                    <h3>Your Mock Prefix:</h3>
+                    <div id="mockPrefix" class="mock-prefix"></div>
+                    <p>Use this prefix in the X-VO-REF header when making requests</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 Better Mountebank</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
