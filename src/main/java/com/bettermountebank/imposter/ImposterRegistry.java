@@ -21,6 +21,14 @@ public class ImposterRegistry {
             List.of("success", "bad_request", "server_error", "proxy", "custom"),
             "bpm",
             "https://some-proxy"
+        ),
+        new Imposter(
+            Pattern.compile("^/api/v1/ccm$"),
+            HttpMethod.POST,
+            "ccm",
+            List.of("success", "bad_request", "server_error", "proxy", "custom"),
+            "ccm",
+            "https://some-proxy"
         )
     ));
 

@@ -5,17 +5,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const resultContainer = document.getElementById('resultContainer');
     const mockPrefixElement = document.getElementById('mockPrefix');
 
-    // State
     let imposters = [];
     let toggles = [];
     let selectedResponses = {};
     let customResponses = {};
     let toggleValues = {};
 
-    // API base path
     const API_BASE = '/api/ui';
 
-    // Fetch imposters from the backend
     function fetchImposters() {
         fetch(`${API_BASE}/imposters`)
             .then(response => response.json())
@@ -53,99 +50,88 @@ document.addEventListener('DOMContentLoaded', function() {
             return acc;
         }, {});
 
-        Object.entries(groupedImposters).forEach(([group, groupImposters]) => {
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'imposter-group';
+        Object.keys(groupedImposters).forEach(group => {
+            const groupContainer = document.createElement('div');
+            groupContainer.className = 'group-container';
+            groupContainer.innerHTML = `<h3>${group}</h3>`;
 
-            const groupHeader = document.createElement('h3');
-            groupHeader.className = 'group-header';
-            groupHeader.textContent = group.toUpperCase();
-            groupDiv.appendChild(groupHeader);
+            groupedImposters[group].forEach(imposter => {
+                const imposterElement = document.createElement('div');
+                imposterElement.className = 'imposter';
+                imposterElement.innerHTML = `
+                    <p>${imposter.specialName}</p>
+                    <div class="response-options">
+                        ${imposter.responses.map(response => `
+                            <label class="radio-group">
+                                <input type="radio" name="response-${imposter.specialName}" value="${response}" ${response === 'proxy' ? 'checked' : ''}>
+                                ${response}
+                            </label>
+                        `).join('')}
+                        <div class="custom-response-container" id="custom-response-${imposter.specialName}" style="display: none;">
+                            <textarea class="custom-response-input" placeholder="Enter custom response here..."></textarea>
+                        </div>
+                    </div>
+                    <button class="add-output-btn" id="add-output-${imposter.specialName}">Add Output</button>
+                    <div class="additional-outputs" id="additional-outputs-${imposter.specialName}"></div>
+                `;
 
-            groupImposters.forEach(imposter => {
-                const imposterDiv = document.createElement('div');
-                imposterDiv.className = 'imposter-item';
-
-                const imposterName = document.createElement('div');
-                imposterName.className = 'imposter-name';
-                imposterName.textContent = `${imposter.method} ${imposter.pattern}`;
-                imposterDiv.appendChild(imposterName);
-
-                const responseOptions = document.createElement('div');
-                responseOptions.className = 'response-options';
-
-                if (!selectedResponses[imposter.specialName]) {
-                    selectedResponses[imposter.specialName] = 'proxy';
-                }
-
-                imposter.responses.forEach(response => {
-                    const radioGroup = document.createElement('div');
-                    radioGroup.className = 'radio-group';
-
-                    const radioInput = document.createElement('input');
-                    radioInput.type = 'radio';
-                    radioInput.name = `response-${imposter.specialName}`;
-                    radioInput.id = `${imposter.specialName}-${response}`;
-                    radioInput.value = response;
-                    radioInput.checked = selectedResponses[imposter.specialName] === response;
-
-                    radioInput.addEventListener('change', () => {
-                        selectedResponses[imposter.specialName] = response;
-
-                        const customContainer = document.getElementById(`custom-container-${imposter.specialName}`);
-                        if (customContainer) {
-                            if (response === 'custom') {
-                                customContainer.classList.add('active');
-                            } else {
-                                customContainer.classList.remove('active');
-                            }
+                // Add event listener for radio buttons
+                imposterElement.querySelectorAll(`input[name="response-${imposter.specialName}"]`).forEach(radio => {
+                    radio.addEventListener('change', (event) => {
+                        const customResponseContainer = document.getElementById(`custom-response-${imposter.specialName}`);
+                        if (event.target.value === 'custom') {
+                            customResponseContainer.style.display = 'block';
+                        } else {
+                            customResponseContainer.style.display = 'none';
                         }
                     });
-
-                    const radioLabel = document.createElement('label');
-                    radioLabel.htmlFor = `${imposter.specialName}-${response}`;
-                    radioLabel.textContent = response;
-
-                    radioGroup.appendChild(radioInput);
-                    radioGroup.appendChild(radioLabel);
-                    responseOptions.appendChild(radioGroup);
                 });
 
-                imposterDiv.appendChild(responseOptions);
+                // Add event listener for Add Output button
+                const addOutputButton = imposterElement.querySelector(`#add-output-${imposter.specialName}`);
+                addOutputButton.addEventListener('click', () => {
+                    const additionalOutputsContainer = document.getElementById(`additional-outputs-${imposter.specialName}`);
+                    const newOutput = document.createElement('div');
+                    newOutput.className = 'additional-output';
+                    newOutput.innerHTML = `
+                        <div class="response-options">
+                            ${imposter.responses.map(response => `
+                                <label class="radio-group">
+                                    <input type="radio" name="additional-response-${imposter.specialName}-${Date.now()}" value="${response}" ${response === 'proxy' ? 'checked' : ''}>
+                                    ${response}
+                                </label>
+                            `).join('')}
+                        </div>
+                        <div class="custom-response-container" style="display: none;">
+                            <textarea class="custom-response-input" placeholder="Enter additional custom response here..."></textarea>
+                        </div>
+                        <button class="remove-output-btn">Remove</button>
+                    `;
 
-                const customContainer = document.createElement('div');
-                customContainer.className = 'custom-response-container';
-                customContainer.id = `custom-container-${imposter.specialName}`;
+                    // Add event listener for radio buttons in the new output
+                    newOutput.querySelectorAll(`input[name^="additional-response-${imposter.specialName}"]`).forEach(radio => {
+                        radio.addEventListener('change', (event) => {
+                            const customResponseContainer = newOutput.querySelector('.custom-response-container');
+                            if (event.target.value === 'custom') {
+                                customResponseContainer.style.display = 'block';
+                            } else {
+                                customResponseContainer.style.display = 'none';
+                            }
+                        });
+                    });
 
-                if (selectedResponses[imposter.specialName] === 'custom') {
-                    customContainer.classList.add('active');
-                }
+                    // Add event listener for Remove button
+                    newOutput.querySelector('.remove-output-btn').addEventListener('click', () => {
+                        newOutput.remove();
+                    });
 
-                const customLabel = document.createElement('label');
-                customLabel.htmlFor = `custom-response-${imposter.specialName}`;
-                customLabel.textContent = 'Custom Response (JSON):';
-
-                const customTextarea = document.createElement('textarea');
-                customTextarea.className = 'custom-response-input';
-                customTextarea.id = `custom-response-${imposter.specialName}`;
-                customTextarea.placeholder = '{\n  "status": 200,\n  "body": { "message": "Custom response" },\n  "headers": { "Content-Type": "application/json" }\n}';
-
-                if (customResponses[imposter.specialName]) {
-                    customTextarea.value = customResponses[imposter.specialName];
-                }
-
-                customTextarea.addEventListener('input', (e) => {
-                    customResponses[imposter.specialName] = e.target.value;
+                    additionalOutputsContainer.appendChild(newOutput);
                 });
 
-                customContainer.appendChild(customLabel);
-                customContainer.appendChild(customTextarea);
-                imposterDiv.appendChild(customContainer);
-
-                groupDiv.appendChild(imposterDiv);
+                groupContainer.appendChild(imposterElement);
             });
 
-            impostersContainer.appendChild(groupDiv);
+            impostersContainer.appendChild(groupContainer);
         });
     }
 
@@ -153,100 +139,70 @@ document.addEventListener('DOMContentLoaded', function() {
         togglesContainer.innerHTML = '';
 
         toggles.forEach(toggle => {
-            if (toggleValues[toggle.name] === undefined) {
-                toggleValues[toggle.name] = toggle.enabled;
-            }
-
-            const toggleDiv = document.createElement('div');
-            toggleDiv.className = 'toggle-item';
-
-            const toggleName = document.createElement('div');
-            toggleName.className = 'toggle-name';
-            toggleName.textContent = toggle.name;
-
-            const toggleControls = document.createElement('div');
-            toggleControls.className = 'toggle-controls';
-
-            ['true', 'false'].forEach(value => {
-                const radioGroup = document.createElement('div');
-                radioGroup.className = 'radio-group';
-
-                const radioInput = document.createElement('input');
-                radioInput.type = 'radio';
-                radioInput.name = `toggle-${toggle.name}`;
-                radioInput.id = `${toggle.name}-${value}`;
-                radioInput.value = value;
-                radioInput.checked = toggleValues[toggle.name] === (value === 'true');
-
-                radioInput.addEventListener('change', () => {
-                    toggleValues[toggle.name] = value === 'true';
-                });
-
-                const radioLabel = document.createElement('label');
-                radioLabel.htmlFor = `${toggle.name}-${value}`;
-                radioLabel.textContent = value;
-
-                radioGroup.appendChild(radioInput);
-                radioGroup.appendChild(radioLabel);
-                toggleControls.appendChild(radioGroup);
-            });
-
-            toggleDiv.appendChild(toggleName);
-            toggleDiv.appendChild(toggleControls);
-            togglesContainer.appendChild(toggleDiv);
+            const toggleElement = document.createElement('div');
+            toggleElement.className = 'toggle';
+            toggleElement.innerHTML = `
+                <p>${toggle.name}</p>
+                <input type="checkbox" name="toggle-${toggle.name}" ${toggle.enabled ? 'checked' : ''}>
+            `;
+            togglesContainer.appendChild(toggleElement);
         });
     }
 
-    function saveConfiguration() {
-        const endpointConfigs = {};
+    saveButton.addEventListener('click', function() {
+        const configRequest = {
+            endpointConfigs: {},
+            toggles: {}
+        };
 
-        Object.entries(selectedResponses).forEach(([specialName, responseType]) => {
-            const outputs = [{
-                type: responseType,
-                customResponse: responseType === 'custom' ? parseCustomResponse(specialName) : null
-            }];
+        imposters.forEach(imposter => {
+            const outputs = [];
 
-            endpointConfigs[specialName] = outputs;
+            // Collect the main response
+            const selectedResponse = document.querySelector(`input[name="response-${imposter.specialName}"]:checked`).value;
+            const customResponseInput = document.getElementById(`custom-response-${imposter.specialName}`)?.querySelector('textarea');
+            outputs.push({
+                type: selectedResponse,
+                customResponse: selectedResponse === 'custom' ? customResponseInput?.value : null
+            });
+
+            const additionalOutputsContainer = document.getElementById(`additional-outputs-${imposter.specialName}`);
+            additionalOutputsContainer.querySelectorAll('.additional-output').forEach(outputElement => {
+                const additionalSelectedResponse = outputElement.querySelector('input[type="radio"]:checked').value;
+                const additionalCustomResponseInput = outputElement.querySelector('.custom-response-input');
+                outputs.push({
+                    type: additionalSelectedResponse,
+                    customResponse: additionalSelectedResponse === 'custom' ? additionalCustomResponseInput?.value : null
+                });
+            });
+
+            configRequest.endpointConfigs[imposter.specialName] = outputs;
         });
 
-        const requestData = {
-            endpointConfigs: endpointConfigs,
-            toggles: toggleValues
-        };
+        toggles.forEach(toggle => {
+            const toggleCheckbox = document.querySelector(`input[name="toggle-${toggle.name}"]`);
+            if (toggleCheckbox) {
+                configRequest.toggles[toggle.name] = toggleCheckbox.checked;
+            }
+        });
 
         fetch(`${API_BASE}/config`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestData)
+            body: JSON.stringify(configRequest)
         })
         .then(response => response.json())
         .then(data => {
-            mockPrefixElement.textContent = data.mockPrefix;
             resultContainer.classList.remove('hidden');
-
-            resultContainer.scrollIntoView({ behavior: 'smooth' });
+            mockPrefixElement.textContent = data.mockPrefix;
         })
         .catch(error => {
             console.error('Error saving configuration:', error);
-            alert('Error saving configuration. Please try again.');
+            alert('Failed to save configuration. Please try again.');
         });
-    }
-
-    function parseCustomResponse(specialName) {
-        const customResponseText = customResponses[specialName];
-        if (!customResponseText) return null;
-
-        try {
-            return JSON.parse(customResponseText);
-        } catch (error) {
-            console.error('Invalid JSON in custom response:', error);
-            return null;
-        }
-    }
-
-    saveButton.addEventListener('click', saveConfiguration);
+    });
 
     fetchImposters();
     fetchToggles();
