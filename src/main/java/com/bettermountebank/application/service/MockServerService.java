@@ -57,10 +57,33 @@ public class MockServerService {
         ImposterRegistry.Imposter imposter = imposterRegistry.findImposter(path, method);
         if (imposter == null) {
             log.warn("Imposter not found for path={}, method={}, mockPrefix={}", path, method, mockPrefix);
-            return ResponseEntity.status(404).body(Map.of(
-                "error", "Imposter not found for this path and method",
-                "lan", headers.getOrDefault("lan", "en")
-            ));
+            try {
+                String targetUrl = "https://tobeapigee.com" + path;
+                HttpHeaders httpHeaders = new HttpHeaders();
+                headers.forEach(httpHeaders::add);
+
+                HttpMethod httpMethod = HttpMethod.valueOf(method);
+                HttpEntity<String> httpEntity = new HttpEntity<>(body, httpHeaders);
+
+                ResponseEntity<String> responseEntity = restTemplate.exchange(
+                    targetUrl,
+                    httpMethod,
+                    httpEntity,
+                    String.class
+                );
+
+                return ResponseEntity
+                    .status(responseEntity.getStatusCode())
+                    .headers(responseEntity.getHeaders())
+                    .body(responseEntity.getBody());
+            } catch (Exception e) {
+                log.error("Error proxying request to default server: {}", e.getMessage());
+                return ResponseEntity.status(502).body(Map.of(
+                    "error", "Proxy failed",
+                    "message", e.getMessage(),
+                    "target", "https://tobeapigee.com"
+                ));
+            }
         }
 
         String specialName = imposter.getSpecialName();
@@ -68,8 +91,12 @@ public class MockServerService {
 
         if (endpointConfig == null) {
             log.warn("No endpoint config found for specialName={}, mockPrefix={}", specialName, mockPrefix);
+            if (imposter.getProxyTarget() != null && !imposter.getProxyTarget().isEmpty()) {
+                log.info("Proxying request to imposter's proxy target: {}", imposter.getProxyTarget());
+                return proxyRequest(request, headers, body, imposter.getProxyTarget());
+            }
             return ResponseEntity.status(404).body(Map.of(
-                "error", "No endpoint configuration found for this path",
+                "error", "No endpoint configuration found for this path and no proxy target available",
                 "lan", headers.getOrDefault("lan", "en")
             ));
         }
@@ -189,6 +216,10 @@ public class MockServerService {
     private ResponseEntity<?> proxyRequest(HttpServletRequest request, Map<String, String> headers, String body, String proxyTarget) {
         try {
             String path = request.getRequestURI();
+            if (path.startsWith("/mock")) {
+                path = path.substring(5);
+            }
+
             String queryString = request.getQueryString();
             String targetUrl = UriComponentsBuilder.fromHttpUrl(proxyTarget)
                     .path(path)
